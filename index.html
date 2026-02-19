@@ -94,7 +94,7 @@
         }
 
         #totalLength {
-            border: 1px solid var(--ios-orange);
+            border: 1.5px solid var(--ios-orange);
         }
 
         .input-unit-display {
@@ -172,7 +172,7 @@
             </header>
 
             <div class="card space-y-6">
-                <!-- 働き & 本数 (一段上へ移動) -->
+                <!-- 働き & 本数 -->
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block ios-label text-[#0a84ff]">働き (＠)</label>
@@ -184,7 +184,7 @@
                     </div>
                 </div>
 
-                <!-- 全幅 (W) (一段下へ移動) -->
+                <!-- 全幅 (W) -->
                 <div>
                     <label class="block ios-label text-[#ff9f0a]">全幅 (W)</label>
                     <div class="relative flex items-center">
@@ -194,7 +194,7 @@
                 </div>
             </div>
 
-            <!-- ボタン行: 更新ボタンとクリアボタンを並列配置 -->
+            <!-- ボタン行 -->
             <div class="flex gap-3 mb-8 items-stretch">
                 <button onclick="manualSaveToHistory()" class="flex-grow py-3.5 btn-orange-3d flex items-center justify-center gap-3">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -252,7 +252,10 @@
         <!-- 右ペイン: 割付墨出し寸法表 -->
         <div class="pane history-pane">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-400">割付墨出し寸法</h2>
+                <div class="flex items-baseline gap-3">
+                    <h2 class="text-2xl font-bold text-gray-400">割付墨出し寸法</h2>
+                    <span id="currentWDisplay" class="text-orange-500 font-bold"></span>
+                </div>
                 <button onclick="showConfirmModal()" class="btn-red-3d">全削除</button>
             </div>
 
@@ -261,7 +264,7 @@
                     <thead>
                         <tr class="text-gray-300">
                             <th class="text-[#0a84ff] w-1/2 border-r border-[#38383a]">働き基準位置</th>
-                            <th class="text-[#30d158] w-1/2 border-r border-[#38383a]">本数基準位置</th>
+                            <th class="text-[#30d158] w-1/2">本数基準位置</th>
                         </tr>
                     </thead>
                     <tbody id="historyTableBody" class="text-center">
@@ -272,12 +275,12 @@
             <!-- 合計エリア -->
             <div class="mt-6 grid grid-cols-2 gap-4">
                 <div class="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 shadow-lg">
-                    <div class="text-[14px] text-gray-300 font-bold mb-1">設定: 働き幅</div>
+                    <div class="text-[14px] text-gray-300 font-bold mb-1 uppercase">働き (@) 設定</div>
                     <div id="totalQtySum" class="text-[28px] font-bold text-[#0a84ff]">-</div>
                     <div id="totalQtyRemSum" class="text-[14px] text-gray-400">-</div>
                 </div>
                 <div class="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 shadow-lg">
-                    <div class="text-[14px] text-gray-300 font-bold mb-1">設定: 本数</div>
+                    <div class="text-[14px] text-gray-300 font-bold mb-1 uppercase">本数 (N) 設定</div>
                     <div id="totalCountSum" class="text-[28px] font-bold text-[#30d158]">-</div>
                     <div id="totalWidthRemSum" class="text-[14px] text-gray-400">-</div>
                 </div>
@@ -314,14 +317,14 @@
         let historyData = [];
 
         window.onload = function() {
-            const savedHistory = localStorage.getItem('kanamono_history_ipad_v1');
+            const savedHistory = localStorage.getItem('kanamono_history_ipad_v2');
             if (savedHistory) {
                 try {
                     historyData = JSON.parse(savedHistory);
                     updateHistoryTable(false);
                 } catch(e) { console.error(e); }
             }
-            const savedInputs = localStorage.getItem('kanamono_inputs_ipad_v1');
+            const savedInputs = localStorage.getItem('kanamono_inputs_ipad_v2');
             if (savedInputs) {
                 try {
                     const inputs = JSON.parse(savedInputs);
@@ -378,18 +381,23 @@
 
             if (isNaN(L)) return;
 
+            // 働き基準の計算
             if (!isNaN(W) && W !== 0) {
                 const qty = Math.floor(L / W) + 1;
-                const rem = L % W;
+                // 余り = 全幅 - (ピッチ × 間隔数)
+                const rem = L - (W * (qty - 1));
                 resQuantity.innerText = formatNumber(qty);
                 resQtyRemainder.innerText = formatNumber(rem);
                 document.getElementById('unitQuantity').classList.remove('hidden');
                 document.getElementById('unitQtyRem').classList.remove('hidden');
             }
 
-            if (!isNaN(N) && N !== 0) {
-                let widthVal = (N > 1) ? L / (N - 1) : 0;
-                const rem = L % N;
+            // 本数基準の計算
+            if (!isNaN(N) && N > 0) {
+                // ピッチは「切捨て」で全幅を超えないようにする
+                let widthVal = (N > 1) ? Math.floor(L / (N - 1)) : 0;
+                // 余り = 全幅 - (切捨てたピッチ × 間隔数)
+                const rem = (N > 1) ? L - (widthVal * (N - 1)) : L;
                 resWidth.innerText = formatNumber(widthVal);
                 resWidthRemainder.innerText = formatNumber(rem);
                 document.getElementById('unitWidth').classList.remove('hidden');
@@ -406,24 +414,34 @@
                 const W = parseValue(latest.pitch);
                 const N = parseValue(latest.count);
 
+                document.getElementById('currentWDisplay').innerText = `[ W: ${formatNumber(L)} ]`;
+
                 const listQty = [];
                 const listWidth = [];
 
+                // 働き基準位置のリスト (中心振り)
                 if (!isNaN(W) && W > 0) {
-                    let rem = L % W;
+                    const qty = Math.floor(L / W) + 1;
+                    const rem = L - (W * (qty - 1));
                     let pos = rem / 2;
-                    while (pos <= (L + 0.1)) {
-                        listQty.push(pos);
+                    for (let i = 0; i < qty; i++) {
+                        if (pos <= (L + 0.1)) {
+                            listQty.push(pos);
+                        }
                         pos += W;
                     }
                 }
 
-                if (!isNaN(N) && N > 1) {
-                    let stepWidth = L / (N - 1);
-                    let pos = 0; 
+                // 本数基準位置のリスト (中心振り)
+                if (!isNaN(N) && N > 0) {
+                    const widthVal = (N > 1) ? Math.floor(L / (N - 1)) : 0;
+                    const rem = (N > 1) ? L - (widthVal * (N - 1)) : L;
+                    let pos = rem / 2;
                     for (let i = 0; i < N; i++) {
-                        listWidth.push(pos);
-                        pos += stepWidth;
+                        if (pos <= (L + 0.1)) {
+                            listWidth.push(pos);
+                        }
+                        pos += widthVal;
                     }
                 }
 
@@ -433,29 +451,38 @@
                     tr.className = "hover:bg-zinc-800/50 transition-colors";
                     
                     const td1 = document.createElement('td');
-                    td1.className = "border-r border-[#38383a] text-xl font-bold text-[#0a84ff]";
+                    td1.className = "border-r border-[#38383a] text-xl py-3 font-bold text-[#0a84ff]";
                     td1.innerText = listQty[i] !== undefined ? formatNumber(listQty[i]) : "-";
 
                     const td2 = document.createElement('td');
-                    td2.className = "text-xl font-bold text-[#30d158]";
+                    td2.className = "text-xl py-3 font-bold text-[#30d158]";
                     td2.innerText = listWidth[i] !== undefined ? formatNumber(listWidth[i]) : "-";
 
                     tr.append(td1, td2);
                     historyTableBody.appendChild(tr);
                 }
 
+                // 概要エリアの更新
                 document.getElementById('totalQtySum').innerText = !isNaN(W) ? formatNumber(W) + "㎜" : "-";
-                document.getElementById('totalQtyRemSum').innerText = "本数:" + formatNumber(listQty.length) + "本";
+                document.getElementById('totalQtyRemSum').innerText = "本数: " + formatNumber(listQty.length) + "本";
+                
                 document.getElementById('totalCountSum').innerText = !isNaN(N) ? formatNumber(N) + "本" : "-";
-                document.getElementById('totalWidthRemSum').innerText = (N > 1) ? "ピッチ:" + formatNumber(L/(N-1)) + "㎜" : "-";
+                if (!isNaN(N) && N > 1) {
+                    const wBase = Math.floor(L / (N - 1));
+                    document.getElementById('totalWidthRemSum').innerText = "ピッチ: " + formatNumber(wBase) + "㎜";
+                } else {
+                    document.getElementById('totalWidthRemSum').innerText = "-";
+                }
+
             } else {
+                document.getElementById('currentWDisplay').innerText = "";
                 document.getElementById('totalQtySum').innerText = "-";
                 document.getElementById('totalQtyRemSum').innerText = "-";
                 document.getElementById('totalCountSum').innerText = "-";
                 document.getElementById('totalWidthRemSum').innerText = "-";
             }
 
-            if (shouldSave) localStorage.setItem('kanamono_history_ipad_v1', JSON.stringify(historyData));
+            if (shouldSave) localStorage.setItem('kanamono_history_ipad_v2', JSON.stringify(historyData));
         }
 
         function manualSaveToHistory() {
@@ -464,6 +491,7 @@
             const N = countInput.value;
             if (!L) return;
 
+            // 履歴は最新の1セットのみ表示（以前のiPad版の仕様を継承）
             historyData = [{ totalLength: L, pitch: W, count: N }];
             updateHistoryTable();
         }
@@ -479,21 +507,18 @@
 
         function saveInputs() {
             const inputs = { totalLength: totalLengthInput.value, pitch: pitchInput.value, count: countInput.value };
-            localStorage.setItem('kanamono_inputs_ipad_v1', JSON.stringify(inputs));
+            localStorage.setItem('kanamono_inputs_ipad_v2', JSON.stringify(inputs));
         }
 
         function showConfirmModal() { if (historyData.length === 0) return; confirmModal.classList.remove('hidden'); }
         function hideConfirmModal() { confirmModal.classList.add('hidden'); }
-        function clearHistory() { historyData = []; localStorage.removeItem('kanamono_history_ipad_v1'); updateHistoryTable(false); hideConfirmModal(); }
+        function clearHistory() { historyData = []; localStorage.removeItem('kanamono_history_ipad_v2'); updateHistoryTable(false); hideConfirmModal(); }
 
         [totalLengthInput, pitchInput, countInput].forEach(el => {
             el.addEventListener('focus', (e) => {
-                if (e.target.id !== 'totalLength') {
-                    e.target.value = '';
-                } else {
-                    const val = parseValue(e.target.value);
-                    if (!isNaN(val)) e.target.value = val;
-                }
+                // 数値をパースして全選択
+                const val = parseValue(e.target.value);
+                if (!isNaN(val)) e.target.value = val;
                 setTimeout(() => e.target.select(), 50);
             });
             el.addEventListener('input', () => { calculate(); saveInputs(); });
